@@ -797,14 +797,47 @@ with tab3:
         "8. Prompt Length vs Tie Scatter":   "prompt_tie",
     }
     CAPTIONS = {
-        "target_dist":    "**Target Distribution** — Class balance across the three outcomes. Ties are relatively rare; most comparisons produce a clear winner, creating mild class imbalance that models must account for.",
-        "resp_len":       "**Response Length Distribution** — Overlapping histograms for Response A and B. Both share similar right-skewed profiles, but Response B tends to be slightly longer on average.",
-        "len_diff":       "**Length Difference by Outcome** — When one response is substantially longer it tends to win. Tie outcomes cluster near zero difference, confirming that length parity is a reliable proxy for judged equivalence.",
-        "top_pairs":      "**Top 10 Model Pairs** — The most frequent head-to-head matchups in the dataset, reflecting the LMSYS Arena leaderboard sampling distribution.",
-        "prompt_violin":  "**Prompt Length by Outcome** — Longer, more complex prompts generate clearer preference signals. Short prompts are over-represented in tie outcomes.",
-        "corr_heatmap":   "**Feature Correlation Heatmap** — Response lengths are highly correlated with length_difference, confirming multicollinearity that regularised models handle well.",
-        "win_rate":       "**Model Win Rate Leaderboard** — Win rate per model across all matchups (minimum 10 appearances). Higher is better.",
-        "prompt_tie":     "**Prompt Length vs Tie Rate** — Scatter of prompt length vs whether the outcome was a tie. Shorter prompts are more frequently tied.",
+        "target_dist":   (
+            "This chart shows the distribution of outcomes across all 30,000 human preference "
+            "judgments. The three classes are nearly balanced at 35% Model A Wins, 34% Model B "
+            "Wins, and 31% Ties, which means the dataset does not heavily favor any single outcome."
+        ),
+        "resp_len":      (
+            "This histogram shows how long Response A and Response B are in characters across the "
+            "dataset. Responses vary widely in length, with some extremely long outliers that "
+            "likely influence human preference judgments significantly."
+        ),
+        "len_diff":      (
+            "This boxplot shows the absolute difference in character length between Response A and "
+            "Response B for each outcome class. When one response is noticeably longer than the "
+            "other, it tends to win, confirming that length ratio is the strongest predictor."
+        ),
+        "top_pairs":     (
+            "This chart shows the most frequently occurring model matchups in the dataset. Certain "
+            "model pairs like GPT-4 vs GPT-3.5 appear far more often than others, which may "
+            "introduce bias into preference patterns."
+        ),
+        "prompt_violin": (
+            "This violin plot shows the distribution of prompt lengths across the three outcome "
+            "classes. Longer prompts tend to produce more ties, suggesting that complex questions "
+            "are harder for humans to judge clearly."
+        ),
+        "corr_heatmap":  (
+            "This heatmap shows the correlation between all numerical features in the dataset. "
+            "Response length features are strongly correlated with each other, which explains why "
+            "length ratio captures most of the predictive signal."
+        ),
+        "win_rate":      (
+            "This chart ranks AI models by their win rate across all battles in the dataset. "
+            "GPT-4 variants consistently outperform older models, but win rate alone does not "
+            "capture response quality since longer responses inflate win rates."
+        ),
+        "prompt_tie":    (
+            "This scatter plot explores the relationship between prompt length and whether a "
+            "battle resulted in a tie. Shorter prompts produce more decisive winners while longer "
+            "prompts tend to create more ties, suggesting humans struggle to differentiate quality "
+            "on complex questions."
+        ),
     }
 
     selected_plot = st.selectbox("Select plot", list(plot_options.keys()), key="eda_plot_sel")
@@ -927,10 +960,8 @@ with tab3:
         if pk not in ("corr_heatmap",):
             fig_eda = apply_chart_style(fig_eda)
         st.plotly_chart(fig_eda, use_container_width=True)
-        st.markdown(
-            f'<div class="info-card">{CAPTIONS.get(pk, "")}</div>',
-            unsafe_allow_html=True,
-        )
+        if CAPTIONS.get(pk):
+            st.caption(CAPTIONS[pk])
 
     hr()
     st.subheader("Summary Statistics (filtered)")
