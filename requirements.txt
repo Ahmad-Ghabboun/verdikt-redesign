@@ -1,0 +1,14 @@
+sentence-transformers
+lightgbm
+keras
+torch
+shap
+streamlit
+scikit-learn
+pandas
+numpy
+matplotlib
+seaborn
+joblib
+plotly
+pyarrow

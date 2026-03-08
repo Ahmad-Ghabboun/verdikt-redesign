@@ -1,0 +1,8 @@
+Model,Accuracy,F1_Weighted,Log_Loss
+LightGBM,0.4905,0.4865,1.0149
+Logistic Regression,0.4726,0.4657,1.0421
+Ridge (L2),0.4726,0.4657,1.0421
+Random Forest,0.4633,0.4583,1.0444
+MLP Neural Network,0.4648,0.455,1.0397
+Lasso (L1),0.4426,0.42,1.0685
+CART Decision Tree,0.3793,0.3794,22.3735
