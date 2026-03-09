@@ -83,6 +83,8 @@ PALETTE = ["#35B095", "#4498D2", "#1D72CE", "#2B825B", "#F2B21A"]
 TAB_INACTIVE = "#1A1A1A" if dark else "#EDF7F4"
 GRID   = "rgba(255,255,255,0.06)" if dark else "rgba(0,0,0,0.06)"
 
+
+
 # ─────────────────────────────────────────────────────────────────────
 # CSS injection
 # ─────────────────────────────────────────────────────────────────────
@@ -200,8 +202,12 @@ button[data-baseweb="tab"]:hover {{
   transform: scale(1.03) !important; color: {TEXT} !important;
 }}
 button[aria-selected="true"][data-baseweb="tab"] {{
-  background: {ACCENT} !important; color: white !important;
+  background: {ACCENT} !important; 
+  color: black !important;
   box-shadow: 0 0 12px rgba(79,195,247,0.5) !important;
+}}
+button[aria-selected="true"][data-baseweb="tab"] * {{
+  color: black !important;
 }}
 [data-baseweb="tab-highlight"], [data-baseweb="tab-border"] {{ display: none !important; }}
 

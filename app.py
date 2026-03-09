@@ -12,6 +12,7 @@ import joblib
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.metrics import confusion_matrix
+from streamlit_option_menu import option_menu
 
 # ─────────────────────────────────────────────────────────────────────
 # Page config (must be first Streamlit call)
@@ -42,7 +43,8 @@ if _missing:
 # Session state initialisation
 # ─────────────────────────────────────────────────────────────────────
 _SS = {
-    "dark_mode": True,
+    "dark_mode": False,
+    "current_nav": "Executive Summary",
     "scenarios": [],
     "agreement_history": [],
     "prediction_history": [],
@@ -71,17 +73,17 @@ st.markdown(
 # ─────────────────────────────────────────────────────────────────────
 # Theme variables
 # ─────────────────────────────────────────────────────────────────────
-dark = st.session_state["dark_mode"]
-BG     = "#1C1C1C"  if dark else "#F7F9F9"
-CARD   = "#252525"  if dark else "#FFFFFF"
-TEXT   = "#FFFFFF"  if dark else "#1A202C"
-MUTED  = "#8E8E8E"  if dark else "#A0AEC0"
-BORDER = "#2A2A2A"  if dark else "#E2E8F0"
-ACCENT = "#CFF242"  if dark else "#35B095"
-ACCENT2= "#9575CD"  if dark else "#4498D2"
-PALETTE = ["#35B095", "#4498D2", "#1D72CE", "#2B825B", "#F2B21A"]
-TAB_INACTIVE = "#1A1A1A" if dark else "#EDF7F4"
-GRID   = "rgba(255,255,255,0.06)" if dark else "rgba(0,0,0,0.06)"
+dark = False
+BG     = "#F8F9FA"
+CARD   = "#FFFFFF"
+TEXT   = "#333333"
+MUTED  = "#8B95A5"
+BORDER = "#E5E9F2"
+ACCENT = "#2CC9B6"
+ACCENT2= "#80CBC4"
+PALETTE = ["#00796B", "#4DD0E1", "#FFF176", "#81C784", "#64B5F6"]
+TAB_INACTIVE = "#FFFFFF"
+GRID   = "rgba(0,0,0,0.05)"
 
 
 
@@ -92,26 +94,64 @@ _CSS = f"""
 <style>
 /* ── Global ── */
 .stApp {{ background-color: {BG}; --border-color: {BORDER}; }}
+.stApp > header, .stAppToolbar, [data-testid="stToolbar"] {{ 
+  background-color: transparent !important; 
+}}
 body, p, li, span, .stMarkdown, div[data-testid="stMarkdownContainer"] {{
   font-family: 'Inter', sans-serif !important; color: {TEXT} !important;
 }}
 h1, h2, h3, h4 {{
-  font-family: 'Syne', sans-serif !important; color: {TEXT} !important;
+  font-family: 'Inter', sans-serif !important; color: {TEXT} !important; font-weight: 600 !important;
 }}
 
-/* ── Gradient header (used in tabs) ── */
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {{
+  background-color: #E6F4EA !important; /* light pastel green */
+  min-width: 200px !important;
+  max-width: 200px !important;
+  border-right: 1px solid {BORDER} !important;
+  padding-top: 2rem !important; /* Top breathing room */
+}}
+[data-testid="stSidebar"] .os-viewport,
+[data-testid="stSidebar"] > div:first-child {{
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+}}
+[data-testid="stSidebar"]::-webkit-scrollbar,
+[data-testid="stSidebar"] *::-webkit-scrollbar {{
+  display: none !important;
+}}
+
+/* Hide Sidebar Collapse Toggle */
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"] {{
+  display: none !important;
+}}
+
+/* Hide Option Menu Text */
+.nav-link-text {{
+  display: none !important;
+}}
+
+/* ── Main content padding ── */
+[data-testid="block-container"] {{
+  padding-left: 3.5rem !important;
+  padding-top: 2rem !important;
+}}
+
+/* ── Gradient header (used in tabs) - Now standard header ── */
 .gradient-header {{
-  background: {"#1C1C1C" if dark else "#35B095"};
-  padding: 2rem 2.5rem; border-radius: 16px;
-  text-align: center; margin-bottom: 1rem;
+  padding: 1rem 0;
+  text-align: left; margin-bottom: 1.5rem;
+  border-bottom: 1px solid {BORDER};
 }}
 .gradient-header h1 {{
-  color: white !important; font-family: 'Syne', sans-serif !important;
-  font-weight: 700; font-size: 2rem; margin: 0;
+  color: {TEXT} !important; font-family: 'Inter', sans-serif !important;
+  font-weight: 700; font-size: 2.2rem; margin: 0;
 }}
 .gradient-header p {{
-  color: rgba(255,255,255,0.85) !important;
-  font-size: 1rem; margin-top: 0.5rem;
+  color: {MUTED} !important;
+  font-size: 1.1rem; margin-top: 0.5rem;
 }}
 
 /* ── Fade-in ── */
@@ -123,130 +163,92 @@ h1, h2, h3, h4 {{
 
 /* ── Metric cards ── */
 .metric-card {{
-  background: {CARD}; border: 1px solid rgba(79,195,247,0.15);
-  border-radius: 12px; padding: 1.25rem 1.5rem;
-  text-align: center; cursor: default; margin-bottom: 0.75rem;
+  background: {CARD}; border: 1px solid {BORDER};
+  border-radius: 16px; padding: 1.5rem;
+  text-align: center; cursor: default; margin-bottom: 1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
   transition: transform 300ms ease, box-shadow 300ms ease;
+  position: relative;
 }}
 .metric-card:hover {{
-  transform: scale(1.04); box-shadow: 0 0 22px rgba(79,195,247,0.4);
+  transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06);
 }}
-.metric-card.best {{ border: 2px solid {ACCENT}; box-shadow: 0 0 16px rgba(79,195,247,0.3); }}
+.metric-card.best {{ border: 2px solid {ACCENT}; }}
+.mc-icon {{
+  width: 48px; height: 48px; background: #E8F5E9; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px auto; color: {ACCENT}; font-size: 1.5rem;
+}}
 .mc-label {{
-  font-size: 0.74rem; font-weight: 600; color: {ACCENT} !important;
-  text-transform: uppercase; letter-spacing: 0.08em;
-  font-family: 'Syne', sans-serif !important;
+  font-size: 0.85rem; font-weight: 600; color: {MUTED} !important;
+  text-transform: uppercase; letter-spacing: 0.05em;
 }}
 .mc-value {{
-  font-size: 1.75rem; font-weight: 700; color: {TEXT} !important;
-  margin-top: 0.35rem; font-family: 'Syne', sans-serif !important;
+  font-size: 2rem; font-weight: 700; color: {TEXT} !important;
+  margin-top: 0.25rem;
 }}
 
-/* ── Info card ── */
-.info-card {{
-  background: {CARD}; border-left: 4px solid {ACCENT};
-  border-radius: 8px; padding: 1rem 1.25rem; margin: 0.6rem 0;
+/* ── Info card & Synaps callout ── */
+.info-card, .synaps-card {{
+  background: {CARD}; border: 1px solid {BORDER};
+  border-radius: 16px; padding: 1.5rem; margin: 1rem 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
 }}
-
-/* ── Synaps callout ── */
-.synaps-card {{
-  background: linear-gradient(135deg, rgba(79,195,247,0.10), rgba(0,119,182,0.10));
-  border: 1px solid rgba(79,195,247,0.35); border-radius: 14px;
-  padding: 1.5rem 2rem; margin: 1rem 0;
-}}
-.synaps-card h4 {{
-  color: {ACCENT} !important; margin-bottom: 0.6rem;
-  font-family: 'Syne', sans-serif !important;
-}}
+.info-card {{ border-left: 4px solid {ACCENT}; }}
+.synaps-card h4 {{ color: {ACCENT} !important; margin-bottom: 0.8rem; font-weight: 600 !important; }}
 
 /* ── Prediction card ── */
 .prediction-card {{
-  background: {CARD}; border: 2px solid {ACCENT}; border-radius: 14px;
+  background: {CARD}; border: 1px solid {BORDER}; border-radius: 16px;
   padding: 1.5rem 2rem; text-align: center;
-  box-shadow: 0 0 28px rgba(79,195,247,0.2); margin: 1rem 0;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06); margin: 1rem 0;
 }}
-.pc-label {{ font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; color: {ACCENT}; }}
-.pc-value {{ font-size: 1.7rem; font-weight: 700; color: {TEXT}; margin-top: 0.4rem; font-family: 'Syne', sans-serif; }}
-.pc-sub   {{ font-size: 0.85rem; color: {MUTED}; margin-top: 0.25rem; }}
+.pc-label {{ font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: {MUTED}; }}
+.pc-value {{ font-size: 2rem; font-weight: 700; color: {ACCENT}; margin-top: 0.5rem; }}
+.pc-sub   {{ font-size: 0.9rem; color: {TEXT}; margin-top: 0.5rem; }}
 
 /* ── Verdict card ── */
 .verdict-card {{
-  border-radius: 12px; padding: 1.25rem; text-align: center; margin: 0.75rem 0;
-  font-family: 'Syne', sans-serif;
+  background: {CARD}; border-radius: 16px; padding: 1.5rem; text-align: center; margin: 1rem 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
 }}
 
 /* ── Custom divider ── */
 .custom-hr {{
-  border: none; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(79,195,247,0.3), transparent);
-  margin: 1.5rem 0;
+  border: none; height: 1px; background: {BORDER}; margin: 2rem 0;
 }}
 
-/* ── Tab pill navigation ── */
-[data-baseweb="tab-list"] {{
-  background: rgba(255,255,255,0.04) !important;
-  backdrop-filter: blur(10px) !important;
-  border-radius: 60px !important; padding: 6px !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  max-width: 1100px; margin: 0 auto 1.5rem auto !important;
-  gap: 3px !important; flex-wrap: wrap !important;
-}}
-button[data-baseweb="tab"] {{
-  background: {TAB_INACTIVE} !important; border-radius: 50px !important;
-  color: {MUTED} !important; font-family: 'Syne', sans-serif !important;
-  font-size: 13px !important; font-weight: 500 !important;
-  padding: 8px 18px !important; border: none !important;
-  transition: all 300ms ease !important; white-space: nowrap !important;
-}}
-button[data-baseweb="tab"]:hover {{
-  transform: scale(1.03) !important; color: {TEXT} !important;
-}}
-button[aria-selected="true"][data-baseweb="tab"] {{
-  background: {ACCENT} !important; 
-  color: black !important;
-  box-shadow: 0 0 12px rgba(79,195,247,0.5) !important;
-}}
-button[aria-selected="true"][data-baseweb="tab"] * {{
-  color: black !important;
-}}
-[data-baseweb="tab-highlight"], [data-baseweb="tab-border"] {{ display: none !important; }}
+/* ── Hide Tabs natively ── */
+[data-baseweb="tab-list"] {{ display: none !important; }}
 
-/* ── All buttons as pills ── */
-.stButton > button {{
-  border-radius: 50px !important;
-  background: linear-gradient(90deg, #0077B6, {ACCENT}) !important;
-  color: white !important; font-family: 'Syne', sans-serif !important;
-  font-weight: 600 !important; padding: 12px 32px !important;
-  min-width: 180px !important; max-width: 240px !important;
-  display: block !important; margin: 20px auto !important;
-  box-shadow: 0 4px 15px rgba(79,195,247,0.4) !important;
-  border: none !important; transition: all 300ms ease !important;
-  font-size: 14px !important;
+/* ── All buttons ── */
+.stButton > button, .stDownloadButton > button {{
+  border-radius: 8px !important;
+  background: {CARD} !important;
+  color: {TEXT} !important;
+  font-weight: 500 !important; padding: 10px 24px !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important;
+  border: 1px solid {BORDER} !important; transition: all 200ms ease !important;
 }}
-.stButton > button:hover {{
-  transform: scale(1.04) !important;
-  box-shadow: 0 6px 22px rgba(79,195,247,0.6) !important;
+.stButton > button:hover, .stDownloadButton > button:hover {{
+  border-color: {ACCENT} !important; color: {ACCENT} !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
 }}
-.stDownloadButton > button {{
-  border-radius: 50px !important;
-  background: linear-gradient(90deg, #0077B6, {ACCENT}) !important;
-  color: white !important; font-family: 'Syne', sans-serif !important;
-  font-weight: 600 !important; padding: 12px 32px !important;
-  min-width: 180px !important; display: block !important;
-  margin: 20px auto !important;
-  box-shadow: 0 4px 15px rgba(79,195,247,0.4) !important;
-  border: none !important; transition: all 300ms ease !important;
+
+/* ── Chart Cards ── */
+.js-plotly-plot {{
+  background: {CARD} !important;
+  border-radius: 16px !important;
+  padding: 1rem !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+  border: 1px solid {BORDER} !important;
 }}
 
 /* ── Inputs ── */
-.stTextInput input, .stTextArea textarea {{
+.stTextInput input, .stTextArea textarea, .stSelectbox > div > div {{
   background: {CARD} !important; color: {TEXT} !important;
-  border-radius: 8px !important; border: 1px solid rgba(79,195,247,0.2) !important;
-  font-family: 'Inter', sans-serif !important;
-}}
-.stSelectbox > div > div {{
-  background: {CARD} !important; color: {TEXT} !important;
-  border-radius: 8px !important; font-family: 'Inter', sans-serif !important;
+  border-radius: 12px !important; border: 1px solid {BORDER} !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.02) !important;
 }}
 </style>
 """
@@ -271,31 +273,92 @@ def apply_chart_style(fig, height=420):
         height=height,
         transition=dict(duration=800, easing="cubic-in-out"),
         margin=dict(l=40, r=40, t=50, b=40),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom", y=-0.2,
+            xanchor="center", x=0.5
+        )
     )
-    fig.update_xaxes(gridcolor=GRID, color=TEXT, zerolinecolor=GRID)
-    fig.update_yaxes(gridcolor=GRID, color=TEXT, zerolinecolor=GRID)
+    fig.update_xaxes(gridcolor=GRID, color=MUTED, zerolinecolor=GRID)
+    fig.update_yaxes(gridcolor=GRID, color=MUTED, zerolinecolor=GRID)
     return fig
 
 
-def metric_card(label: str, value: str, best: bool = False):
-    cls = "metric-card best" if best else "metric-card"
-    st.markdown(
-        f'<div class="{cls}"><div class="mc-label">{label}</div>'
-        f'<div class="mc-value">{value}</div></div>',
-        unsafe_allow_html=True,
-    )
+def metric_card(label: str, value: str, best: bool = False, icon: str = "📊"):
+    best_border = "border: 2px solid #2CC9B6;" if best else "border: 1px solid #E5E9F2;"
+    html = f"""
+    <div style="
+        background-color: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        margin-bottom: 1rem;
+        position: relative;
+        {best_border}
+    ">
+        <div style="
+            width: 48px; height: 48px;
+            background-color: #E8F5E9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px auto;
+            color: #2CC9B6;
+            font-size: 1.5rem;
+        ">
+            {icon}
+        </div>
+        <div style="font-size: 0.85rem; font-weight: 600; color: #8B95A5; text-transform: uppercase; letter-spacing: 0.05em;">
+            {label}
+        </div>
+        <div style="font-size: 2rem; font-weight: 700; color: #333333; margin-top: 0.25rem;">
+            {value}
+        </div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
 
 
-def animated_metric_card(label: str, final_int: int, prefix: str = "", suffix: str = ""):
+def animated_metric_card(label: str, final_int: int, prefix: str = "", suffix: str = "", icon: str = "📊"):
     ph = st.empty()
     steps = 18
     for i in range(steps + 1):
         cur = int(final_int * i / steps)
-        ph.markdown(
-            f'<div class="metric-card"><div class="mc-label">{label}</div>'
-            f'<div class="mc-value">{prefix}{cur:,}{suffix}</div></div>',
-            unsafe_allow_html=True,
-        )
+        html = f"""
+        <div style="
+            background-color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            position: relative;
+            border: 1px solid #E5E9F2;
+        ">
+            <div style="
+                width: 48px; height: 48px;
+                background-color: #E8F5E9;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 12px auto;
+                color: #2CC9B6;
+                font-size: 1.5rem;
+            ">
+                {icon}
+            </div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: #8B95A5; text-transform: uppercase; letter-spacing: 0.05em;">
+                {label}
+            </div>
+            <div style="font-size: 2rem; font-weight: 700; color: #333333; margin-top: 0.25rem;">
+                {prefix}{cur:,}{suffix}
+            </div>
+        </div>
+        """
+        ph.markdown(html, unsafe_allow_html=True)
         if i < steps:
             time.sleep(0.015)
 
@@ -447,40 +510,65 @@ unique_models = len({c.replace("model_a_", "").replace("model_b_", "") for c in 
 CLASS_LABELS  = {0: "Model A Wins", 1: "Model B Wins", 2: "Tie"}
 mlp_available = os.path.exists("models/mlp_model.keras")
 
-# ─────────────────────────────────────────────────────────────────────
-# Top header row: toggle + gradient banner
-# ─────────────────────────────────────────────────────────────────────
-_, _tcol = st.columns([8, 1])
-with _tcol:
-    if st.button("Light Mode" if dark else "Dark Mode", key="theme_toggle"):
-        st.session_state["dark_mode"] = not st.session_state["dark_mode"]
-        st.session_state["exec_animated"] = False
-        st.rerun()
+# Top header row logic removed
 
 # ─────────────────────────────────────────────────────────────────────
-# Tab bar
+# Sidebar Navigation
 # ─────────────────────────────────────────────────────────────────────
-(
-    tab1, tab2, tab3, tab4, tab5,
-    tab6, tab7, tab8, tab9,
-) = st.tabs([
-    "Interactive Prediction",
-    "Executive Summary",
-    "EDA Explorer",
-    "Model Performance",
-    "SHAP Explainability",
-    "What-If Simulator",
-    "Model Agreement Analyzer",
-    "Head-to-Head Arena",
-    "Dataset Explorer",
-])
+with st.sidebar:
+    st.markdown("<h2 style='text-align: center; color: #2CC9B6; font-family: Inter, sans-serif; margin-bottom: 2rem; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.1em;'>Verdikt</h2>", unsafe_allow_html=True)
+    nav_labels = [
+        "Executive Summary",
+        "Interactive Prediction",
+        "EDA Explorer",
+        "Model Performance",
+        "SHAP Explainability",
+        "What-If Simulator",
+        "Model Agreement Analyzer",
+        "Head-to-Head Arena",
+        "Dataset Explorer"
+    ]
+    icons = [
+        "bar-chart-line",
+        "bullseye",
+        "search",
+        "trophy",
+        "diagram-3",
+        "joystick",
+        "people",
+        "lightning",
+        "folder2-open"
+    ]
+    selected_nav = option_menu(
+        menu_title=None,
+        options=nav_labels,
+        icons=icons,
+        default_index=0,
+        styles={
+            "container": {"background-color": "#E6F4EA", "padding": "0!important"},
+            "icon": {"color": "#333333", "font-size": "24px", "display": "flex", "justify-content": "center", "margin": "0"},
+            "nav-link": {"font-size": "0px", "text-align": "center", "margin": "8px 0", "padding": "16px 0", "display": "flex", "justify-content": "center"},
+            "nav-link-selected": {"background-color": "#D4EDDA", "border-left": "4px solid #2CC9B6", "border-radius": "0 12px 12px 0"}
+        }
+    )
+    st.session_state["current_nav"] = selected_nav
+
+tab1_v = selected_nav == "Interactive Prediction"
+tab2_v = selected_nav == "Executive Summary"
+tab3_v = selected_nav == "EDA Explorer"
+tab4_v = selected_nav == "Model Performance"
+tab5_v = selected_nav == "SHAP Explainability"
+tab6_v = selected_nav == "What-If Simulator"
+tab7_v = selected_nav == "Model Agreement Analyzer"
+tab8_v = selected_nav == "Head-to-Head Arena"
+tab9_v = selected_nav == "Dataset Explorer"
 
 # ══════════════════════════════════════════════════════════════════════
 # TAB 1 — Interactive Prediction
 # ══════════════════════════════════════════════════════════════════════
-with tab1:
+if tab1_v:
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
-    st.header("Interactive Prediction")
+    st.markdown('<div class="gradient-header"><h1>🎯 Interactive Prediction</h1><p>Generate predictions on custom prompts and responses using the selected model.</p></div>', unsafe_allow_html=True)
     _all_pred_models = model_comparison["Model"].tolist()
     pred_model_sel   = st.selectbox(
         "Select prediction model",
@@ -638,7 +726,7 @@ with tab1:
 # ══════════════════════════════════════════════════════════════════════
 # TAB 2 — Executive Summary
 # ══════════════════════════════════════════════════════════════════════
-with tab2:
+if tab2_v:
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
     st.markdown(
         '<div class="gradient-header">'
@@ -692,18 +780,18 @@ with tab2:
     _do_anim = not st.session_state["exec_animated"]
     with c1:
         if _do_anim:
-            animated_metric_card("Dataset Size", dataset_size)
+            animated_metric_card("Dataset Size", dataset_size, icon="📂")
         else:
-            metric_card("Dataset Size", f"{dataset_size:,}")
+            metric_card("Dataset Size", f"{dataset_size:,}", icon="📂")
     with c2:
         if _do_anim:
-            animated_metric_card("Unique Models", unique_models)
+            animated_metric_card("Unique Models", unique_models, icon="🧠")
         else:
-            metric_card("Unique Models", str(unique_models))
+            metric_card("Unique Models", str(unique_models), icon="🧠")
     with c3:
-        metric_card("Best Model", best_model_name, best=True)
+        metric_card("Best Model", best_model_name, best=True, icon="🏆")
     with c4:
-        metric_card("Best F1 Score", f"{best_f1:.4f}", best=True)
+        metric_card("Best F1 Score", f"{best_f1:.4f}", best=True, icon="🎯")
 
     if _do_anim:
         st.session_state["exec_animated"] = True
@@ -753,9 +841,9 @@ with tab2:
 # ══════════════════════════════════════════════════════════════════════
 # TAB 3 — EDA Explorer
 # ══════════════════════════════════════════════════════════════════════
-with tab3:
+if tab3_v:
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
-    st.header("EDA Explorer")
+    st.markdown('<div class="gradient-header"><h1>🔍 EDA Explorer</h1><p>Visualise feature distributions and correlations across the dataset.</p></div>', unsafe_allow_html=True)
 
     X_eda, y_eda = load_features_targets()
 
@@ -968,9 +1056,9 @@ with tab3:
 # ══════════════════════════════════════════════════════════════════════
 # TAB 4 — Model Performance
 # ══════════════════════════════════════════════════════════════════════
-with tab4:
+if tab4_v:
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
-    st.header("Model Performance")
+    st.markdown('<div class="gradient-header"><h1>🏆 Model Performance</h1><p>Compare F1, Accuracy, and Log Loss scores across trained cross-validation models.</p></div>', unsafe_allow_html=True)
     st.markdown(
         f"All models evaluated with **5-fold stratified cross-validation** (random_state=42). "
         f"Best model: **{best_model_name}**."
@@ -1190,9 +1278,9 @@ with tab4:
 # ══════════════════════════════════════════════════════════════════════
 # TAB 5 — SHAP Explainability
 # ══════════════════════════════════════════════════════════════════════
-with tab5:
+if tab5_v:
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
-    st.header("SHAP Explainability")
+    st.markdown('<div class="gradient-header"><h1>🧠 SHAP Explainability</h1><p>Understand which features drive the LightGBM human preference predictions.</p></div>', unsafe_allow_html=True)
     st.markdown(f"Explaining **{best_model_name}** predictions using structured features only.")
     if mlp_available:
         st.info(
@@ -1377,9 +1465,9 @@ with tab5:
 # ══════════════════════════════════════════════════════════════════════
 # TAB 6 — What-If Simulator
 # ══════════════════════════════════════════════════════════════════════
-with tab6:
+if tab6_v:
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
-    st.header("What-If Simulator")
+    st.markdown('<div class="gradient-header"><h1>🕹️ What-If Simulator</h1><p>Adjust variables in real-time to see how they affect confidence scores.</p></div>', unsafe_allow_html=True)
     st.markdown(
         "Adjust sliders to explore how feature values affect the model prediction. "
         "Prediction updates automatically on every change."
@@ -1579,9 +1667,9 @@ with tab6:
 # ══════════════════════════════════════════════════════════════════════
 # TAB 7 — Model Agreement Analyzer
 # ══════════════════════════════════════════════════════════════════════
-with tab7:
+if tab7_v:
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
-    st.header("Model Agreement Analyzer")
+    st.markdown('<div class="gradient-header"><h1>🤝 Model Agreement Analyzer</h1><p>Simulate dual-LLM document QA audits testing for judge alignment.</p></div>', unsafe_allow_html=True)
     st.markdown(
         "Simulates the Synaps dual-LLM evaluation system. Set scores and confidence "
         "for two independent judge models, then analyze their agreement."
@@ -1684,9 +1772,9 @@ with tab7:
 # ══════════════════════════════════════════════════════════════════════
 # TAB 8 — Head-to-Head Arena
 # ══════════════════════════════════════════════════════════════════════
-with tab8:
+if tab8_v:
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
-    st.header("Head-to-Head Arena")
+    st.markdown('<div class="gradient-header"><h1>⚔️ Head-to-Head Arena</h1><p>Compare the historical win rates of specific AI foundation models directly.</p></div>', unsafe_allow_html=True)
     st.markdown(
         "Filter the dataset for rows where two specific models face off, "
         "then view win/loss/tie statistics."
@@ -1799,9 +1887,9 @@ with tab8:
 # ══════════════════════════════════════════════════════════════════════
 # TAB 9 — Dataset Explorer
 # ══════════════════════════════════════════════════════════════════════
-with tab9:
+if tab9_v:
     st.markdown('<div class="fade-in">', unsafe_allow_html=True)
-    st.header("Dataset Explorer")
+    st.markdown('<div class="gradient-header"><h1>📂 Dataset Explorer</h1><p>Filter, explore, and export the raw engineered feature combinations.</p></div>', unsafe_allow_html=True)
     st.markdown("Filter, explore, and export the feature dataset. All filters apply live.")
     hr()
 
