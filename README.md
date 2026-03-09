@@ -4,10 +4,10 @@ A full end-to-end data science pipeline predicting human preference
 in LLM head-to-head battles using the LMSYS Chatbot Arena dataset.
 
 ## Live App
-
+https://verdikt-app.streamlit.app
 
 ## GitHub
-
+https://github.com/Ahmad-Ghabboun/verdikt-app.git
 
 ## How to Run Locally
 1. Clone the repository
