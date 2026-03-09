@@ -12,3 +12,4 @@ seaborn
 joblib
 plotly
 pyarrow
+streamlit-option-menu
