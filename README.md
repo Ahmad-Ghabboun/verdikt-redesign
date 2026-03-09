@@ -1,13 +1,13 @@
-# Verdikt — LLM Response Preference Analytics
+# Verdikt — Redesign
 
 A full end-to-end data science pipeline predicting human preference
 in LLM head-to-head battles using the LMSYS Chatbot Arena dataset.
 
 ## Live App
-https://verdikt.streamlit.app
+
 
 ## GitHub
-https://github.com/Ahmad-Ghabboun/verdikt
+
 
 ## How to Run Locally
 1. Clone the repository
